@@ -21,7 +21,7 @@ apply plugin: 'com.android.library'
  *  Files in the libjpeg-turbo, libusb, libuvc, rapidjson folder
  *  may have a different license, see the respective files.
  */
-
+//
 //import org.apache.tools.ant.taskdefs.condition.Os
 
 android {

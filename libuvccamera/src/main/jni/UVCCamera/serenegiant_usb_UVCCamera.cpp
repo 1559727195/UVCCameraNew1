@@ -7,16 +7,86 @@
 #include <jni.h>
 #include <assert.h>
 #include "../utilbase.h"
+#include "UVCCamera.h"
 
 
-//实现
-jstring getStr(JNIEnv *jniEnv, jobject ob) {
-    return jniEnv->NewStringUTF(
-            "动态注册JNI test");
+/**
+ * set the value into the long field
+ * @param env: this param should not be null
+ * @param bullet_obj: this param should not be null
+ * @param field_name
+ * @params val
+ */
+static jlong setField_long(JNIEnv *env, jobject java_obj, const char *field_name, jlong val) {
+#if LOCAL_DEBUG
+    LOGV("setField_long:");
+#endif
+
+    jclass clazz = env->GetObjectClass(java_obj);
+    jfieldID field = env->GetFieldID(clazz, field_name, "J");
+    if (LIKELY(field))
+        env->SetLongField(java_obj, field, val);
+    else {
+        LOGE("__setField_long:field '%s' not found", field_name);
+    }
+#ifdef ANDROID_NDK
+    env->DeleteLocalRef(clazz);
+#endif
+    return val;
 }
 
-jint addInt(JNIEnv *jniEnv, jobject ob, jint a, jint b) {
-    return a + b;
+
+static ID_TYPE nativeCreate(JNIEnv *env, jobject thiz) {
+
+    ENTER();
+    UVCCamera *camera = new UVCCamera();
+    setField_long(env, thiz, "mNativePtr", reinterpret_cast<ID_TYPE>(camera));
+    RETURN(reinterpret_cast<ID_TYPE>(camera), ID_TYPE);
+}
+
+// native側のカメラオブジェクトを破棄
+static void nativeDestroy(JNIEnv *env, jobject thiz,
+                          ID_TYPE id_camera) {
+
+    ENTER();
+    setField_long(env, thiz, "mNativePtr", 0);
+    UVCCamera *camera = reinterpret_cast<UVCCamera *>(id_camera);
+    if (LIKELY(camera)) {
+        SAFE_DELETE(camera);
+    }
+    EXIT();
+}
+
+//======================================================================
+// カメラへ接続
+static jint nativeConnect(JNIEnv *env, jobject thiz,
+                          ID_TYPE id_camera,
+                          jint vid, jint pid, jint fd,
+                          jint busNum, jint devAddr, jstring usbfs_str) {
+
+    ENTER();
+    int result = JNI_ERR;
+    UVCCamera *camera = reinterpret_cast<UVCCamera *>(id_camera);
+    const char *c_usbfs = env->GetStringUTFChars(usbfs_str, JNI_FALSE);
+    if (LIKELY(camera && (fd > 0))) {
+//		libusb_set_debug(NULL, LIBUSB_LOG_LEVEL_DEBUG);
+        result =  camera->connect(vid, pid, fd, busNum, devAddr, c_usbfs);
+    }
+    env->ReleaseStringUTFChars(usbfs_str, c_usbfs);
+    RETURN(result, jint);
+}
+
+// カメラとの接続を解除
+static jint nativeRelease(JNIEnv *env, jobject thiz,
+                          ID_TYPE id_camera) {
+
+    ENTER();
+    int result = JNI_ERR;
+    UVCCamera *camera = reinterpret_cast<UVCCamera *>(id_camera);
+    if (LIKELY(camera)) {
+        result = camera->release();
+    }
+    RETURN(result, jint);
 }
 
 
@@ -40,8 +110,10 @@ jint registerNativeMethods(JNIEnv *env, const char *class_name, JNINativeMethod 
 }
 
 static JNINativeMethod methods[] = {
-        {"getStr", "()Ljava/lang/String;", (void *) getStr},
-        {"addInt",    "(II)I",                (void *) addInt},
+        { "nativeCreate",					"()J", (void *) nativeCreate },
+        { "nativeDestroy",					"(J)V", (void *) nativeDestroy },
+        { "nativeConnect",					"(JIIIIILjava/lang/String;)I", (void *) nativeConnect },
+        { "nativeRelease",					"(J)I", (void *) nativeRelease },
 };
 
 int register_uvccamera(JNIEnv *env) {

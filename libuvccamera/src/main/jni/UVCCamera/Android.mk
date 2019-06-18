@@ -7,15 +7,14 @@ LOCAL_C_INCLUDES := \
 
 
 LOCAL_SRC_FILES := \
-          test1.cpp \
-          test2.cpp  \
           utilbase.cpp\
           _onload.cpp  \
-          serenegiant_usb_UVCCamera.cpp
+          serenegiant_usb_UVCCamera.cpp \
+          UVCCamera.cpp \
 
 LOCAL_LDFLAGS += -llog
 
 
-LOCAL_MODULE    := test2
+LOCAL_MODULE    := UVCCamera
 
 include $(BUILD_SHARED_LIBRARY)
